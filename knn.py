@@ -72,7 +72,7 @@ def preprocess(set_name):
 N = 943
 M = 1682
 # set_name = "u1"
-for set_name in ['u1', 'u2', 'u3', 'u4', 'u5']:
+for set_name in ['u1']:  # ['u1', 'u2', 'u3', 'u4', 'u5']
     r_ui, has_rated, user_mean, user_stddev = preprocess(set_name)  # preprocess load_data
 
     print("Load test data")
@@ -94,63 +94,67 @@ for set_name in ['u1', 'u2', 'u3', 'u4', 'u5']:
     print("Sort by similarity")
     sorted_by_simil = np.argsort(w_prime, axis=1)[:, ::-1]
 
-    K = 20
-    err_MAE_sum = 0
-    print("Total number of pairs:", len(test_data))
-    compare = np.zeros((len(test_data), 2))
-    num_not_enough = 0
-    num_not_similar = 0
-    for i, user_movie_pair in enumerate(test_data):
-        # print(i)
+    # K = 20
+    K_values = [85, 90]
+    grid_search_results = np.zeros((len(K_values), 2))
+    for i_K, K in enumerate(K_values):
+        err_MAE_sum = 0
+        print("Total number of pairs:", len(test_data))
+        compare = np.zeros((len(test_data), 2))
+        num_not_enough = 0
+        num_not_similar = 0
+        for i, user_movie_pair in enumerate(test_data):
+            # print(i)
 
-        user_id = int(user_movie_pair[0]) - 1
-        movie_id = int(user_movie_pair[1]) - 1
-        real_rating = user_movie_pair[2]
+            user_id = int(user_movie_pair[0]) - 1
+            movie_id = int(user_movie_pair[1]) - 1
+            real_rating = user_movie_pair[2]
 
-        # Find K closest users
-        k_closest_users = []
-        for close_user in sorted_by_simil[user_id]:
-            if has_rated[close_user, movie_id]:
-                k_closest_users.append(close_user)
-            if len(k_closest_users) == K:
-                break
+            # Find K closest users
+            k_closest_users = []
+            for close_user in sorted_by_simil[user_id]:
+                if has_rated[close_user, movie_id]:
+                    k_closest_users.append(close_user)
+                if len(k_closest_users) == K:
+                    break
 
-        if len(k_closest_users) > 0:
-            # Estimate rating
-            numerateur = 0
-            denominateur = 0
-            for u in k_closest_users:
-                numerateur += w_prime[user_id, u] * r_ui[u, movie_id]
-                denominateur += w_prime[user_id, u]
+            if len(k_closest_users) > 0:
+                # Estimate rating
+                numerateur = 0
+                denominateur = 0
+                for u in k_closest_users:
+                    numerateur += w_prime[user_id, u] * r_ui[u, movie_id]
+                    denominateur += w_prime[user_id, u]
 
-            if denominateur > 0.001:
-                estimated_z = numerateur / denominateur
-                estimated = estimated_z * user_stddev[user_id] + user_mean[user_id]
+                if denominateur > 0.001:
+                    estimated_z = numerateur / denominateur
+                    estimated = estimated_z * user_stddev[user_id] + user_mean[user_id]
+                else:
+                    estimated = real_rating  # trololo
+                    num_not_similar += 1
             else:
-                estimated = real_rating  # trololo
-                num_not_similar += 1
-        else:
-            estimated = real_rating  # lol
-            num_not_enough += 1
+                estimated = real_rating  # lol
+                num_not_enough += 1
 
-        err_MAE_sum += np.abs(real_rating - estimated)
-        compare[i] = (real_rating, estimated)
+            err_MAE_sum += np.abs(real_rating - estimated)
+            compare[i] = (real_rating, estimated)
 
-    total_valid = len(test_data) - num_not_enough - num_not_similar
+        total_valid = len(test_data) - num_not_enough - num_not_similar
 
-    MAE_quality = err_MAE_sum / total_valid
+        MAE_quality = err_MAE_sum / total_valid
 
-    print("MAE Quality Measure:", MAE_quality)
-    print("Cas pas assez de voisins:", num_not_enough)
-    print("Cas pas assez similaires:", num_not_similar)
-    np.savetxt("predict.csv", compare)
+        print("MAE Quality Measure:", MAE_quality)
+        print("Cas pas assez de voisins:", num_not_enough)
+        print("Cas pas assez similaires:", num_not_similar)
+        np.savetxt("predict.csv", compare)
 
-    with open("cumulative_results.txt", "a") as file:
-        file.write("\nDataset: {}\n".format(set_name))
-        file.write("MAE Quality: {}\n".format(MAE_quality))
-        file.write("Cases with zero valid neighbors:   {}\n".format(num_not_enough))
-        file.write("Cases with zero similar neighbors: {}\n".format(num_not_similar))
+        with open("cumulative_results.txt", "a") as file:
+            file.write("\nDataset: {}\n".format(set_name))
+            file.write("MAE Quality: {}\n".format(MAE_quality))
+            file.write("Cases with zero valid neighbors:   {}\n".format(num_not_enough))
+            file.write("Cases with zero similar neighbors: {}\n".format(num_not_similar))
 
-        # Erreur moyenne en etoiles: 1.04099029627
-        # Cas pas assez de voisins: 54
-        # Cas pas assez similaires: 6
+        grid_search_results[i_K] = (K, MAE_quality)
+
+    np.savetxt("grid_search.csv", grid_search_results, delimiter='\t')
+
