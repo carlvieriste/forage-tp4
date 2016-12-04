@@ -72,7 +72,7 @@ def preprocess(set_name):
 N = 943
 M = 1682
 # set_name = "u1"
-for set_name in ['u1']:  # ['u1', 'u2', 'u3', 'u4', 'u5']
+for set_name in ['u1', 'u2', 'u3', 'u4', 'u5']:  # ['u1', 'u2', 'u3', 'u4', 'u5']
     r_ui, has_rated, user_mean, user_stddev = preprocess(set_name)  # preprocess load_data
 
     print("Load test data")
@@ -95,7 +95,7 @@ for set_name in ['u1']:  # ['u1', 'u2', 'u3', 'u4', 'u5']
     sorted_by_simil = np.argsort(w_prime, axis=1)[:, ::-1]
 
     # K = 20
-    K_values = [85, 90]
+    K_values = [60]
     grid_search_results = np.zeros((len(K_values), 2))
     for i_K, K in enumerate(K_values):
         err_MAE_sum = 0
